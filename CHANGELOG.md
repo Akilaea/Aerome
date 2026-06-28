@@ -1,5 +1,46 @@
 # Changelog
 
+## v1.2.0
+
+新增 **酷狗音乐**音源 + **三方跨音源 fallback**（参考 ncm 解锁思路），同时把所有运行时缓存统一迁出 C 盘。
+
+### 酷狗音源接入
+
+- 新增 `/api/kugou/search`：免登录搜索，走 `msearch.kugou.com/api/v3/search/song` + 自实现 MD5 签名（参数按字典序排序后两端拼 `NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt`），返回标准化 SongInfo 列表（含 hash + albumId + name + artist + duration）。
+- 新增 `/api/kugou/song/url`：免登录拿播放 URL，走 `m.kugou.com/app/i/getSongInfo.php?cmd=playInfo`。免费歌曲返回 128K 试听 URL，VIP 歌曲返回 `playable=false` + `payRequired=true`。
+- 新增 `/api/kugou/lyric`：免登录拿 LRC 歌词，走 `krcs.kugou.com/search` + `lyrics.kugou.com/download` 两步式接口（候选 ID + accesskey → base64 LRC 文本），解析为 `{from, to, content}` 行。
+- 设备标识：启动时生成 + 持久化 `dfid` + `mid` 到 `E:\Claude code\AeromeData\.kugou-dfid`，避免反爬。
+- `audioProxyHeadersFor` 增加 `kugou.com` / `kgmusic.com` 分支，自动带 `Referer: https://www.kugou.com/` + `Origin`。
+
+### 三方跨音源 fallback（VIP 解锁思路）
+
+- `alternatePlaybackProviders` 改为返回 `['qq', 'kugou', 'netease']` 数组（剔除当前源）。
+- `searchAlternatePlatformSong` 依次尝试每个备选音源，第一个找到同名同歌手歌曲的返回。
+- 实际场景：网易云 VIP → 自动找 QQ 版本；QQ VIP → 自动找酷狗版本；酷狗 VIP → 自动找 QQ 版本。覆盖范围比 v1.1.x 的双源 fallback 显著扩大。
+
+### UI 端
+
+- 搜索 tab 增加「酷狗」选项；`searchMode` 白名单、`setSearchMode`、placeholder 全部更新。
+- `songProviderKey` / `playbackProviderLabel` / `songSourceTagHtml` 识别 kugou。
+- `fetchBeatPrefetchAudioUrl` + `loadAndPlayCurrentSong` 增加 kugou 分支，VIP 歌曲自动触发 `tryAutoPlaybackFallback`。
+- CSS `.tag-source.kugou`（酷狗蓝 `#009AF3`）+ `.search-result.kugou-source:hover`。
+- 全平台「All」搜索现在并行搜网易云 + QQ + 酷狗，结果按相关性合并。
+- 新增 `normalizeKugouItem`，把后端 hash/albumId 字段标准化为前端期望的 song 对象。
+
+### 缓存目录统一（v1.1.x 遗留）
+
+- 所有运行时缓存重定向到 `E:\Claude code\AeromeData\`：
+  - `.cookie`（网易云）+ `.qq-cookie`（QQ 音乐）+ `.bili-buvid`（B 站）+ `.kugou-dfid`（酷狗）
+  - `beatmaps/`（节拍图缓存）
+  - `updates/`（自动更新下载 + 补丁备份）
+  - `userData/`（Electron 内部：Cache、GPUCache、Code Cache、IndexedDB 等）
+- 不再写入 C 盘 `%APPDATA%\Aerome\`；可通过 `AEROME_DATA_DIR` 环境变量覆盖。
+
+### 兼容性
+
+- v1.1.x 用户升级后旧的 C 盘 cookie/缓存不会自动迁移（避免误删用户数据）；如需保留登录态，用户可手动把 `%APPDATA%\Aerome\.cookie` 拷贝到 `E:\Claude code\AeromeData\.cookie`。
+- v1.1.0 已经创建过的独立 `Aerome` 文件夹仍可被 v1.1.1+ 安全覆盖安装。
+
 ## v1.1.1
 
 同步上游 Mineradio v1.1.1 的 **P0 安装器安全修复**（[上游发布说明](https://github.com/XxHuberrr/Mineradio/releases/tag/v1.1.1)），并完成 Aerome 品牌化适配。

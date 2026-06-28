@@ -2377,6 +2377,10 @@ function audioProxyHeadersFor(audioUrl, range) {
       headers.Referer = 'https://www.bilibili.com/';
       headers.Origin = 'https://www.bilibili.com';
     }
+    if (host.includes('kugou.com') || host.includes('kgmusic.com') || host.includes('kuwo.cn')) {
+      headers.Referer = 'https://www.kugou.com/';
+      headers.Origin = 'https://www.kugou.com';
+    }
   } catch (e) {}
   if (range) headers.Range = range;
   return headers;
@@ -2832,6 +2836,205 @@ async function handleBiliSubtitle(bvid, cid) {
       to: typeof l.to === 'number' ? l.to : parseFloat(l.to || '0') || 0,
       content: String(l.content || ''),
     })).filter(l => l.content),
+  };
+}
+
+// ---------- 酷狗（免登录音频接入）----------
+// 路由：/api/kugou/search | /api/kugou/song/url | /api/kugou/lyric
+// 免登录可拿免费歌曲 url（VIP 歌曲返回 playable=false，payRequired=true）
+// dfid/mid 是设备/会话标识，启动时生成 + 持久化到 .kugou-dfid（play/getdata 用，备选路径）
+const KUGOU_DID_FILE = process.env.KUGOU_DID_FILE || path.join(AEROME_DATA_DIR, '.kugou-dfid');
+const KUGOU_SECRET = 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt';
+const KUGOU_SEARCH_URL = 'https://msearch.kugou.com/api/v3/search/song';
+const KUGOU_PLAYINFO_URL = 'https://m.kugou.com/app/i/getSongInfo.php';
+const KUGOU_KRC_SEARCH_URL = 'https://krcs.kugou.com/search';
+const KUGOU_KRC_DOWNLOAD_URL = 'https://lyrics.kugou.com/download';
+const KUGOU_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0 Mobile/15E148 Safari/604.1',
+  'Referer': 'https://m.kugou.com/',
+  'Origin': 'https://m.kugou.com',
+};
+
+function generateKugouDfid() {
+  const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  return Array.from({ length: 32 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+function loadKugouDid() {
+  try {
+    if (fs.existsSync(KUGOU_DID_FILE)) {
+      const raw = fs.readFileSync(KUGOU_DID_FILE, 'utf8').trim();
+      const parts = raw.split(/\s+/);
+      if (parts.length >= 2 && parts[0] && parts[1]) return { dfid: parts[0], mid: parts[1] };
+      if (parts.length === 1 && parts[0]) return { dfid: parts[0], mid: generateKugouDfid() };
+    }
+  } catch (e) {}
+  const fresh = { dfid: generateKugouDfid(), mid: generateKugouDfid() };
+  try { fs.writeFileSync(KUGOU_DID_FILE, fresh.dfid + '\n' + fresh.mid); } catch (e) {}
+  return fresh;
+}
+
+const _KUGOU_DID = loadKugouDid();
+const KUGOU_DFID = _KUGOU_DID.dfid;
+const KUGOU_MID = _KUGOU_DID.mid;
+
+// 酷狗 search 接口需要 signature：参数按 key 字典序排序，SECRET + "k=v" + ... + SECRET，MD5 小写
+function kugouSignature(params) {
+  const keys = Object.keys(params).sort();
+  let s = KUGOU_SECRET;
+  for (const k of keys) {
+    const v = String(params[k] == null ? '' : params[k]);
+    s += k + '=' + v;
+  }
+  s += KUGOU_SECRET;
+  return crypto.createHash('md5').update(s, 'utf8').digest('hex');
+}
+
+function kugouSignedUrl(baseUrl, params) {
+  const sig = kugouSignature(params);
+  const u = new URL(baseUrl);
+  for (const k of Object.keys(params)) u.searchParams.set(k, String(params[k]));
+  u.searchParams.set('signature', sig);
+  return u.toString();
+}
+
+async function kugouFetchJson(targetUrl) {
+  const text = await requestText(targetUrl, { headers: KUGOU_HEADERS });
+  try { return JSON.parse(text); } catch (e) {
+    throw new Error('kugou json parse failed: ' + text.slice(0, 160));
+  }
+}
+
+async function kugouFetchText(targetUrl) {
+  return await requestText(targetUrl, { headers: KUGOU_HEADERS });
+}
+
+function normalizeKugouPic(pic) {
+  if (!pic) return '';
+  if (pic.startsWith('//')) return 'https:' + pic;
+  if (pic.includes('{size}')) return pic.replace('{size}', '480');
+  return pic;
+}
+
+function stripKugouTag(s) {
+  return String(s || '').replace(/<[^>]+>/g, '').trim();
+}
+
+// 酷狗歌词是 LRC 文本，转成 {from,to,content} 行
+function parseKugouLrc(lrcText) {
+  if (!lrcText) return [];
+  const out = [];
+  const timeRe = /\[(\d+):(\d+(?:\.\d+)?)\]/g;
+  for (const raw of String(lrcText).split(/\r?\n/)) {
+    const text = raw.replace(timeRe, '').trim();
+    if (!text) continue;
+    let m;
+    timeRe.lastIndex = 0;
+    const stamps = [];
+    while ((m = timeRe.exec(raw)) !== null) {
+      stamps.push(parseInt(m[1], 10) * 60 + parseFloat(m[2]));
+    }
+    if (!stamps.length) continue;
+    stamps.sort((a, b) => a - b);
+    out.push({ from: stamps[0], to: stamps[stamps.length - 1] + 4, content: text });
+  }
+  out.sort((a, b) => a.from - b.from);
+  for (let i = 0; i < out.length - 1; i++) {
+    if (out[i].to > out[i + 1].from) out[i].to = out[i + 1].from;
+  }
+  return out;
+}
+
+async function handleKugouSearch(keyword, page, limit) {
+  if (!keyword) return { total: 0, items: [] };
+  const pg = Math.max(1, parseInt(page || '1', 10) || 1);
+  const ps = Math.max(1, Math.min(50, parseInt(limit || '20', 10) || 20));
+  const params = {
+    keyword,
+    page: pg,
+    pagesize: ps,
+    showtype: 4,
+    version: 9108,
+    plat: 0,
+    clientver: 9108,
+  };
+  const u = kugouSignedUrl(KUGOU_SEARCH_URL, params);
+  const data = await kugouFetchJson(u);
+  const items = ((data.data || {}).info || []).map(item => {
+    const hash = String(item.FileHash || item.hash || '').toUpperCase();
+    return {
+      id: String(item.audio_id || item.songid || hash),
+      hash,
+      albumId: String(item.AAlbumID || item.album_id || ''),
+      name: stripKugouTag(item.SongName || item.songname),
+      artist: stripKugouTag(item.SingerName || item.singername).split(/、|&/)[0],
+      album: stripKugouTag(item.AlbumName || item.album_name),
+      duration: Number(item.Duration || item.duration || 0),
+    };
+  }).filter(it => it.hash);
+  return { total: ((data.data || {}).total || items.length) | 0, items };
+}
+
+async function handleKugouSongUrl(hash, albumId) {
+  const h = String(hash || '').trim().toUpperCase();
+  if (!h) return { provider: 'kugou', url: '', playable: false, error: 'MISSING_HASH' };
+  const u = new URL(KUGOU_PLAYINFO_URL);
+  u.searchParams.set('cmd', 'playInfo');
+  u.searchParams.set('hash', h);
+  if (albumId) u.searchParams.set('album_id', String(albumId));
+  const data = await kugouFetchJson(u.toString());
+  const playUrl = String(data.url || data.play_url || '').replace(/\\\//g, '/').trim();
+  const privilege = Number(data.privilege || 0);
+  return {
+    provider: 'kugou',
+    url: playUrl,
+    playable: !!playUrl && privilege === 0,
+    duration: Number(data.timeLength || data.timelength || 0),
+    pic: normalizeKugouPic(data.album_img || data.imgUrl || ''),
+    quality: privilege === 0 ? 'standard' : 'vip_required',
+    hash: h,
+    songName: stripKugouTag(data.songName || data.fileName || ''),
+    payRequired: privilege !== 0,
+  };
+}
+
+async function handleKugouLyric(hash, keyword, duration) {
+  const h = String(hash || '').trim().toUpperCase();
+  if (!h) return { provider: 'kugou', lyric: '', lines: [] };
+  // Step 1: 搜歌词候选拿 id + accesskey
+  const searchUrl = new URL(KUGOU_KRC_SEARCH_URL);
+  searchUrl.searchParams.set('ver', '1');
+  searchUrl.searchParams.set('man', 'yes');
+  searchUrl.searchParams.set('client', 'mobi');
+  searchUrl.searchParams.set('hash', h);
+  searchUrl.searchParams.set('keyword', keyword || '');
+  searchUrl.searchParams.set('duration', String(duration || 0));
+  let candidates = [];
+  try {
+    const searchData = await kugouFetchJson(searchUrl.toString());
+    candidates = (searchData && searchData.candidates) || [];
+  } catch (e) { return { provider: 'kugou', lyric: '', lines: [] }; }
+  if (!candidates.length) return { provider: 'kugou', lyric: '', lines: [] };
+  // Step 2: 下载 LRC（base64 编码）
+  const pick = candidates[0];
+  const dlUrl = new URL(KUGOU_KRC_DOWNLOAD_URL);
+  dlUrl.searchParams.set('ver', '1');
+  dlUrl.searchParams.set('client', 'pc');
+  dlUrl.searchParams.set('id', String(pick.id));
+  dlUrl.searchParams.set('accesskey', String(pick.accesskey));
+  dlUrl.searchParams.set('fmt', 'lrc');
+  dlUrl.searchParams.set('charset', 'utf8');
+  let lrcText = '';
+  try {
+    const dlData = await kugouFetchJson(dlUrl.toString());
+    if (dlData && dlData.content) {
+      lrcText = Buffer.from(dlData.content, 'base64').toString('utf8').replace(/^﻿/, '');
+    }
+  } catch (e) { return { provider: 'kugou', lyric: '', lines: [] }; }
+  return {
+    provider: 'kugou',
+    lyric: lrcText || '',
+    lines: parseKugouLrc(lrcText),
   };
 }
 
@@ -3745,6 +3948,48 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       console.error('[BiliSubtitle]', err);
       sendJSON(res, { provider: 'bili', error: err.message, lines: [] }, 500);
+    }
+    return;
+  }
+
+  // ---------- 酷狗（免登录）----------
+  if (pn === '/api/kugou/search') {
+    try {
+      const kw = url.searchParams.get('keywords') || url.searchParams.get('keyword') || '';
+      const page = url.searchParams.get('page') || '1';
+      const limit = url.searchParams.get('limit') || '20';
+      const data = await handleKugouSearch(kw, page, limit);
+      sendJSON(res, { provider: 'kugou', ...data });
+    } catch (err) {
+      console.error('[KugouSearch]', err);
+      sendJSON(res, { provider: 'kugou', error: err.message, items: [], total: 0 }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/kugou/song/url') {
+    try {
+      const hash = url.searchParams.get('hash') || '';
+      const albumId = url.searchParams.get('album_id') || url.searchParams.get('albumId') || '';
+      const info = await handleKugouSongUrl(hash, albumId);
+      sendJSON(res, info);
+    } catch (err) {
+      console.error('[KugouSongUrl]', err);
+      sendJSON(res, { provider: 'kugou', url: '', playable: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/kugou/lyric') {
+    try {
+      const hash = url.searchParams.get('hash') || '';
+      const keyword = url.searchParams.get('keyword') || url.searchParams.get('name') || '';
+      const duration = url.searchParams.get('duration') || '0';
+      const data = await handleKugouLyric(hash, keyword, duration);
+      sendJSON(res, data);
+    } catch (err) {
+      console.error('[KugouLyric]', err);
+      sendJSON(res, { provider: 'kugou', error: err.message, lyric: '', lines: [] }, 500);
     }
     return;
   }
