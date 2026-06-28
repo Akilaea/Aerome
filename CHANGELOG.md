@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.2.1（hotfix）
+
+修复 v1.2.0 / v1.1.1 的安装目录重复叠加 bug。
+
+### Bug 描述
+
+v1.1.1 从上游同步的 `AeromeNormalizeInstallDir` 在 sed 替换 `Mineradio → Aerome` 时漏改了字符串长度常量：
+
+- 上游用 `${If} $1 < 10` + `StrCpy $2 "$0" 10 -10` 检查结尾是否为 `\Mineradio`（10 字符）
+- Aerome 化后只把字符串名替换为 `\Aerome`（7 字符），但长度判断仍为 10
+- 导致 `D:\Aerome`（长度 9）< 10 命中第一个条件，被叠加为 `D:\Aerome\Aerome`
+- 安装器内多次 normalize 累积，最终生成 `D:\Aerome\Aerome\Aerome\Aerome`
+
+### 修复
+
+`build/installer.nsh` 三处长度判断改为 7（`\Aerome` 实际长度）：
+- `AeromeNormalizeInstallDir`
+- `AeromeValidateInstallDir`（安装前校验）
+- `un.AeromeNormalizeInstallDir`（卸载时）
+
+### 升级建议
+
+- 已装 v1.2.0 的用户：直接覆盖安装 v1.2.1，会安装到正确的 `D:\Aerome`；旧的嵌套目录 `D:\Aerome\Aerome\Aerome\Aerome` 会被卸载器清空（只删 Aerome 已知文件 + 末级空目录），残留的中间空目录可手动删除。
+- 新装用户：装到 `D:\Aerome` 即可，无嵌套问题。
+
 ## v1.2.0
 
 新增 **酷狗音乐**音源 + **三方跨音源 fallback**（参考 ncm 解锁思路），同时把所有运行时缓存统一迁出 C 盘。

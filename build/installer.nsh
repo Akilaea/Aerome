@@ -387,8 +387,8 @@ Function AeromeNormalizeInstallDir
   ${EndIf}
 
   StrLen $1 "$0"
-  StrCpy $2 "$0" 10 -10
-  ${If} $1 < 10
+  StrCpy $2 "$0" 7 -7
+  ${If} $1 < 7
   ${OrIf} $2 != "\Aerome"
   ${AndIf} $2 != "\aerome"
     StrCpy $0 "$0\Aerome"
@@ -749,8 +749,8 @@ Function AeromeValidateInstallDir
   ${EndIf}
 
   StrLen $0 "$INSTDIR"
-  StrCpy $1 "$INSTDIR" 10 -10
-  ${If} $0 < 10
+  StrCpy $1 "$INSTDIR" 7 -7
+  ${If} $0 < 7
   ${OrIf} $1 != "\Aerome"
   ${AndIf} $1 != "\aerome"
     MessageBox MB_ICONSTOP|MB_OK "安装目录必须是独立的 Aerome 文件夹。请选择一个上级目录，安装器会自动创建 Aerome 子文件夹。"
@@ -940,8 +940,8 @@ Function un.AeromeNormalizeInstallDir
   ${EndIf}
 
   StrLen $1 "$0"
-  StrCpy $2 "$0" 10 -10
-  ${If} $1 < 10
+  StrCpy $2 "$0" 7 -7
+  ${If} $1 < 7
   ${OrIf} $2 != "\Aerome"
   ${AndIf} $2 != "\aerome"
     StrCpy $0 "$0\Aerome"
