@@ -32,6 +32,9 @@ const MIN_WINDOWED_HEIGHT = 540;
 const APP_NAME = 'Aerome';
 const APP_USER_MODEL_ID = 'com.aerome.desktop';
 const APP_ICON_ICO = path.join(__dirname, '..', 'build', 'icon.ico');
+const AEROME_DATA_DIR = process.env.AEROME_DATA_DIR || 'E:\\Claude code\\AeromeData';
+try { fs.mkdirSync(AEROME_DATA_DIR, { recursive: true }); } catch (e) {}
+app.setPath('userData', path.join(AEROME_DATA_DIR, 'userData'));
 const NETEASE_LOGIN_PARTITION = 'persist:aerome-netease-login';
 const NETEASE_LOGIN_URL = 'https://music.163.com/#/login';
 const QQ_LOGIN_PARTITION = 'persist:aerome-qqmusic-login';
@@ -1325,8 +1328,9 @@ async function createWindow() {
 
   process.env.HOST = '127.0.0.1';
   process.env.PORT = String(port);
-  process.env.COOKIE_FILE = path.join(app.getPath('userData'), '.cookie');
-  process.env.QQ_COOKIE_FILE = path.join(app.getPath('userData'), '.qq-cookie');
+  process.env.AEROME_DATA_DIR = AEROME_DATA_DIR;
+  process.env.COOKIE_FILE = path.join(AEROME_DATA_DIR, '.cookie');
+  process.env.QQ_COOKIE_FILE = path.join(AEROME_DATA_DIR, '.qq-cookie');
   process.env.AEROME_UPDATE_DIR = getUpdateDownloadDir();
   try {
     const legacyQQCookie = path.join(__dirname, '..', '.qq-cookie');

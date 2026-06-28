@@ -59,12 +59,14 @@ const { analyzePodcastDjStream, analyzePodcastDjIntro } = require('./dj-analyzer
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-const COOKIE_FILE = process.env.COOKIE_FILE || path.join(__dirname, '.cookie');
-const QQ_COOKIE_FILE = process.env.QQ_COOKIE_FILE || path.join(__dirname, '.qq-cookie');
-const UPDATE_WORK_DIR = process.env.AEROME_UPDATE_DIR || path.join(__dirname, 'updates');
+const AEROME_DATA_DIR = process.env.AEROME_DATA_DIR || 'E:\\Claude code\\AeromeData';
+try { fs.mkdirSync(AEROME_DATA_DIR, { recursive: true }); } catch (e) {}
+const COOKIE_FILE = process.env.COOKIE_FILE || path.join(AEROME_DATA_DIR, '.cookie');
+const QQ_COOKIE_FILE = process.env.QQ_COOKIE_FILE || path.join(AEROME_DATA_DIR, '.qq-cookie');
+const UPDATE_WORK_DIR = process.env.AEROME_UPDATE_DIR || path.join(AEROME_DATA_DIR, 'updates');
 const UPDATE_DOWNLOAD_DIR = process.env.AEROME_UPDATE_DOWNLOAD_DIR || path.join(UPDATE_WORK_DIR, 'downloads');
 const UPDATE_PATCH_BACKUP_DIR = process.env.AEROME_PATCH_BACKUP_DIR || path.join(UPDATE_WORK_DIR, 'backups', 'patches');
-const BEATMAP_CACHE_DIR = process.env.AEROME_BEAT_CACHE_DIR || 'D:\\AeromeCache\\beatmaps';
+const BEATMAP_CACHE_DIR = process.env.AEROME_BEAT_CACHE_DIR || path.join(AEROME_DATA_DIR, 'beatmaps');
 const APP_PACKAGE = readPackageInfo();
 const APP_VERSION = process.env.AEROME_VERSION || APP_PACKAGE.version || '0.9.11';
 const UPDATE_CONFIG = readUpdateConfig(APP_PACKAGE);
@@ -2684,7 +2686,7 @@ async function handleQQSearch(keywords, limit) {
 // 路由：/api/bili/search | /api/bili/detail | /api/bili/audio | /api/bili/subtitle
 // 不依赖登录态；音频流走 /api/audio?url=... 反向代理（audioProxyHeadersFor 已加 bili referer）
 // 搜索需要 buvid3/buvid_fp cookie 才不会被反爬挡，启动时生成一份并持久化复用
-const BILI_COOKIE_FILE = process.env.BILI_COOKIE_FILE || path.join(__dirname, '.bili-buvid');
+const BILI_COOKIE_FILE = process.env.BILI_COOKIE_FILE || path.join(AEROME_DATA_DIR, '.bili-buvid');
 function generateBuvid3() {
   // 模仿 B 站 buvid3 格式：8-4-4-4-12 大写 hex（UUID v4 风格）
   const hex = '0123456789ABCDEF';
