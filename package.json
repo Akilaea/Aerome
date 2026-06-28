@@ -1,7 +1,7 @@
 {
   "name": "aerome",
   "productName": "Aerome",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Aerome — 沉浸式音乐播放器（基于 Mineradio 的 GPL-3.0 派生作品），融合天气电台、歌词舞台、粒子视觉、3D 歌单架，并新增 B 站音源等扩展。",
   "author": "Akilaea",
   "main": "desktop/main.js",

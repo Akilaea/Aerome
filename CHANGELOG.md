@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.1.1
+
+同步上游 Mineradio v1.1.1 的 **P0 安装器安全修复**（[上游发布说明](https://github.com/XxHuberrr/Mineradio/releases/tag/v1.1.1)），并完成 Aerome 品牌化适配。
+
+### 安装器安全修复（来自上游 v1.1.1）
+
+- **新增专属标记文件**：安装时在安装根目录写入 `.aerome-install-root` 标记文件（含 `appId=com.aerome.desktop`）。卸载时只清理该标记文件确认归属的目录，避免误删用户其它文件。
+- **卸载不再递归删除安装根目录**：新卸载器改为枚举 Aerome 已知文件名（`Aerome.exe`、Electron 运行时 DLL/pak/dat、`locales/`、`resources/`、`swiftshader/` 等空目录），不再使用 `RMDir /R $INSTDIR`。
+- **卸载前双重校验**：`un.AeromeValidateUninstallDir` 强制要求卸载路径必须是 `\Aerome` 结尾，且必须存在标记文件；任意一项不满足直接 `SetErrorLevel 2` 退出，不删任何文件。
+- **禁止在混合目录就地安装**：例如 `D:\百度盘\翻身(1)` 这类含其它文件的目录不再被接管为安装目录；安装器只允许独立的 `Aerome` 文件夹，或空的可创建目录。
+- **禁用遗留不安全卸载器**：`AeromeDisableUnsafeOldUninstallers` 在安装开始时扫描注册表中记录的旧 InstallLocation，如果该路径缺少标记文件且不是当前可接管目录，会删除遗留的 `Uninstall Aerome.exe` 单文件并清理残留注册表项，防止后续被错误调用。
+- **首次安装目录选择改进**：自动从 D-Z 盘中选首个可用盘作为默认安装位置（只有 C 盘时回落到 `C:\Aerome`）；如果注册表已有可接管的 Aerome 安装路径，优先复用。
+- **C 盘保护**：检测到 D-Z 任意盘存在时，禁止安装到 C 盘（避免与系统盘混用）；只有当电脑确实只有 C 盘时才放行。
+- **保留覆盖能力**：v1.1.0 已经创建过的独立 `Aerome` 文件夹即使没有标记文件，也可以被 v1.1.1 安全覆盖安装（自动补写标记）。
+
+### 升级说明
+
+- 这是 **P0 安全更新**，必须运行完整的 Setup.exe 才能替换旧版 Windows 卸载器和注册表项；不提供软件内快速补丁。
+- 已经安装 v1.1.0 的用户：直接覆盖安装即可，旧文件夹会被识别为可接管目录，标记文件会自动补全。
+- 已经从更早版本（v1.0.x）升级过的用户：如果当前安装路径是独立的 `D:\Aerome` 之类的纯净目录，直接覆盖安装；如果是混合目录（例如 `D:\百度盘\翻身(1)`），安装器只移除遗留的 `Uninstall Aerome.exe` 单文件，并把新版本安装到一个安全的 `Aerome` 子目录，不会触碰目录里的其它文件。
+
+### 其它
+
+- 上游 v1.1.1 同时附带作者的支持海报（`docs/SUPPORT.md` + `docs/assets/support/mineradio-author-support-poster.png`），这是上游作者个人的赞助渠道，**Aerome 派生版本不携带此文件**，仅同步与安全相关的代码改动。
+
 ## 二创 · 品牌重命名为 Aerome（未发布）
 
 - 项目名 Mineradio → **Aerome**，独立维护仓库 https://github.com/Akilaea/Aerome
