@@ -7,7 +7,7 @@
 - 基于 Mineradio v1.1.0 源码派生重打包，不复用上游旧 `dist/`、旧安装包、旧 `node_modules`、旧备份包或任何历史 packaged build。
 - 不生成从上游旧版本到 Aerome 的快速补丁。
 - GitHub Release 需要明确标注：本仓库是 Mineradio 的 GPL-3.0 派生作品。
-- 安装包样式沿用 `docs/INSTALLER_STYLE.md` 的中文极简黑白蓝格式。
+- 安装包样式为中文极简黑白蓝格式。
 
 ## 发布前检查
 
