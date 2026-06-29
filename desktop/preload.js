@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   clearNeteaseMusicLogin: () => ipcRenderer.invoke('netease-music-clear-login'),
   openQQMusicLogin: () => ipcRenderer.invoke('qq-music-open-login'),
   clearQQMusicLogin: () => ipcRenderer.invoke('qq-music-clear-login'),
+  openKugouMusicLogin: () => ipcRenderer.invoke('kugou-music-open-login'),
+  clearKugouMusicLogin: () => ipcRenderer.invoke('kugou-music-clear-login'),
   openUpdateInstaller: (filePath) => ipcRenderer.invoke('aerome-open-update-installer', filePath),
   restartApp: () => ipcRenderer.invoke('aerome-restart-app'),
   configureGlobalHotkeys: (bindings) => ipcRenderer.invoke('aerome-hotkeys-configure-global', bindings || []),

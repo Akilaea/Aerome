@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.3.0
+
+酷狗音源改为**登录模式**，彻底修复 v1.2.2 中免登录 `m.kugou.com playInfo` 端点失效导致酷狗完全无法播放的问题。
+
+### 酷狗登录模式接入
+
+- v1.2.2 实测酷狗免登录 `m.kugou.com/app/i/getSongInfo.php`（playInfo）端点整体失效——连免费歌都拿不到播放地址，酷狗音源实际不可用。
+- 改为和网易云 / QQ 一样的登录模式：弹出官方 `www.kugou.com` 网页窗口扫码登录，抓取 cookie 后走官网 web 接口 `wwwapi.kugou.com/play/songinfo` 获取播放地址（登录账号有权限的 VIP 歌曲也能播）。
+- 登录态 cookie 持久化到 `.kugou-login`；解析 `KuGoo` 复合字段拿到 `userid` / `token` / `vip_type`；签名复用现有 `kugouSignature`（同一个 secret）。
+- 酷狗成为第三平台账号：登录模态新增「酷狗」tab、用户菜单新增酷狗切换 / 补登 / 退出，并接入三音源（网易云 ↔ QQ ↔ 酷狗）自动换源与未登录播放提示。
+- 全程只走官网 web 接口 + 真实浏览器 cookie，不碰安卓接口、不做任何风控绕过；搜索与歌词仍保持免登录可用。
+
 ## v1.2.2
 
 修复 v1.2.0 / v1.2.1 安装后无法启动的问题，并补充嵌套安装目录的清理能力。
