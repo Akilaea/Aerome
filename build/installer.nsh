@@ -719,6 +719,53 @@ Function AeromeDeleteLegacyUninstallerFileIfMissingMarker
   done:
 FunctionEnd
 
+Function AeromeCleanupNestedLegacyInstall
+  ; v1.2.0 / v1.1.1 嵌套安装目录遗留修复。
+  ; 场景：旧版把目录叠加成 D:\Aerome\Aerome\Aerome\Aerome，用户在 v1.2.2 选 D:\Aerome 想扁平化，
+  ; 但 AeromeValidateInstallDir 会因 "非专属目录" 拒绝。此函数在验证前清理嵌套子目录。
+
+  Push $INSTDIR
+  Call AeromeInstallDirIsEmpty
+  Pop $0
+  ${If} $0 == "1"
+    Goto cni_done
+  ${EndIf}
+
+  Push $INSTDIR
+  Call AeromeInstallDirLooksOwned
+  Pop $0
+  ${If} $0 == "1"
+    Goto cni_done
+  ${EndIf}
+
+  ; 从 $INSTDIR\Aerome 起逐层下钻，最多 5 层，找带 marker 的真实安装根
+  StrCpy $0 "$INSTDIR\Aerome"
+  StrCpy $1 0
+
+  cni_loop:
+    ${If} $1 >= 5
+      Goto cni_done
+    ${EndIf}
+    ${IfNot} ${FileExists} "$0\*.*"
+      Goto cni_done
+    ${EndIf}
+    ${If} ${FileExists} "$0\${AEROME_INSTALL_MARKER}"
+      Goto cni_found
+    ${EndIf}
+    StrCpy $0 "$0\Aerome"
+    IntOp $1 $1 + 1
+    Goto cni_loop
+
+  cni_found:
+    MessageBox MB_ICONQUESTION|MB_YESNO "检测到旧版 v1.2.0 / v1.1.1 遗留的嵌套安装目录：$\r$\n$\r$\n$0$\r$\n$\r$\n需要清理 $INSTDIR 下的嵌套 Aerome 目录才能继续安装。是否清理？$\r$\n$\r$\n（只会删除 $INSTDIR\Aerome\，不影响 $INSTDIR 之外的文件）" IDYES cni_clean
+    Abort
+
+  cni_clean:
+    RMDir /R "$INSTDIR\Aerome"
+
+  cni_done:
+FunctionEnd
+
 Function AeromeValidateInstallDir
   Push "$INSTDIR"
   Call AeromeNormalizeInstallDir
@@ -899,6 +946,7 @@ Function AeromeDirectoryLeave
   Pop $0
   StrCpy $INSTDIR "$0"
   SendMessage $AeromeDirectoryInput ${WM_SETTEXT} 0 "STR:$INSTDIR"
+  Call AeromeCleanupNestedLegacyInstall
   Call AeromeValidateInstallDir
 FunctionEnd
 !endif

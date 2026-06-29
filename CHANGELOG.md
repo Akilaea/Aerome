@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.2.2
+
+修复 v1.2.0 / v1.2.1 安装后无法启动的问题，并补充嵌套安装目录的清理能力。
+
+### 修复 1：数据目录硬编码导致打不开
+
+- `desktop/main.js` 与 `server.js` 把数据目录硬编码为 `E:\Claude code\AeromeData`，分发用户机器没有 E 盘或该父目录，`fs.mkdirSync` 静默失败，Electron 的 `userData` 指向不存在的路径，写不进文件 → 安装后启动崩溃。
+- 改为 `resolveAeromeDataDir()`：打包版取 `process.resourcesPath` 上一层的 `data`（即 `<安装根目录>\data\`）；开发版回退到项目下 `.aerome-data\`；仍可用 `AEROME_DATA_DIR` 覆盖。
+- 所有运行时缓存（cookie、酷狗 dfid、userData 等）现在落在安装根目录下，不再依赖特定盘符。
+
+### 修复 2：嵌套安装目录自动清理
+
+- v1.2.0 buggy 安装会把目录堆成 `D:\Aerome\Aerome\Aerome\Aerome`；用户在 v1.2.2 选 `D:\Aerome` 想扁平化时，会被「非专属目录」校验拒绝。
+- 新增 `AeromeCleanupNestedLegacyInstall`：在安装目录校验前，从 `$INSTDIR\Aerome` 向下最多查找 5 层带 `.aerome-install-root` 标记的真实安装根；找到则弹窗询问是否清理 `RMDir /R "$INSTDIR\Aerome"`，确认后才继续安装。
+- 只在交互式安装路径触发，不影响静默安装。
+
+### 其它
+
+- 酷狗搜索结果现在读取 `privilege` / `pay_type` 标记 VIP 歌曲，前端复用 `.tag-vip` 渲染并直接跳过 `/api/kugou/song/url` 走跨音源 fallback。
+
 ## v1.2.1（hotfix）
 
 修复 v1.2.0 / v1.1.1 的安装目录重复叠加 bug。

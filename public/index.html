@@ -17764,6 +17764,7 @@ function normalizeBiliItem(v) {
 }
 function normalizeKugouItem(v) {
   v = v || {};
+  const payRequired = !!v.payRequired;
   return {
     id: v.id || v.hash,
     hash: v.hash || '',
@@ -17776,7 +17777,9 @@ function normalizeKugouItem(v) {
     provider: 'kugou',
     source: 'kugou',
     type: 'kugou',
-    playable: true,
+    playable: !payRequired,
+    fee: payRequired ? 1 : 0,  // 复用现有 .tag-vip 渲染（s.fee === 1）
+    payRequired,
   };
 }
 function renderSongSearchResults(songs) {
@@ -18620,7 +18623,12 @@ async function playQueueAt(idx, opts) {
     if (isBiliPlayback) {
       data = await apiJson('/api/bili/audio?bvid=' + encodeURIComponent(song.bvid || song.id || '') + (song.cid ? '&cid=' + encodeURIComponent(song.cid) : ''));
     } else if (isKugouPlayback) {
-      data = await apiJson('/api/kugou/song/url?hash=' + encodeURIComponent(song.hash || song.id || '') + (song.albumId ? '&album_id=' + encodeURIComponent(song.albumId) : ''));
+      // 搜索结果已带 payRequired（基于 msearch privilege 字段），VIP 歌曲直接跳过 song/url 调用
+      if (song.payRequired) {
+        data = { provider: 'kugou', url: '', playable: false, payRequired: true };
+      } else {
+        data = await apiJson('/api/kugou/song/url?hash=' + encodeURIComponent(song.hash || song.id || '') + (song.albumId ? '&album_id=' + encodeURIComponent(song.albumId) : ''));
+      }
     } else if (isQQPlayback) {
       data = await apiJson('/api/qq/song/url?mid=' + encodeURIComponent(song.mid || song.songmid || song.id || '') + '&mediaMid=' + encodeURIComponent(song.mediaMid || song.media_mid || '') + qualityParam);
     } else {

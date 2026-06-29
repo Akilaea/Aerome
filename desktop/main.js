@@ -32,7 +32,14 @@ const MIN_WINDOWED_HEIGHT = 540;
 const APP_NAME = 'Aerome';
 const APP_USER_MODEL_ID = 'com.aerome.desktop';
 const APP_ICON_ICO = path.join(__dirname, '..', 'build', 'icon.ico');
-const AEROME_DATA_DIR = process.env.AEROME_DATA_DIR || 'E:\\Claude code\\AeromeData';
+function resolveAeromeDataDir() {
+  if (process.env.AEROME_DATA_DIR) return process.env.AEROME_DATA_DIR;
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, '..', 'data');
+  }
+  return path.join(__dirname, '..', '.aerome-data');
+}
+const AEROME_DATA_DIR = resolveAeromeDataDir();
 try { fs.mkdirSync(AEROME_DATA_DIR, { recursive: true }); } catch (e) {}
 app.setPath('userData', path.join(AEROME_DATA_DIR, 'userData'));
 const NETEASE_LOGIN_PARTITION = 'persist:aerome-netease-login';

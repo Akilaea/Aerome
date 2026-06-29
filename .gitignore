@@ -25,6 +25,9 @@ win-unpacked/
 .cookie
 .qq-cookie
 .bili-buvid
+.kugou-dfid
+.aerome-data/
+aerome-data/
 updates/
 backups/
 *.log

@@ -59,7 +59,7 @@ const { analyzePodcastDjStream, analyzePodcastDjIntro } = require('./dj-analyzer
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-const AEROME_DATA_DIR = process.env.AEROME_DATA_DIR || 'E:\\Claude code\\AeromeData';
+const AEROME_DATA_DIR = process.env.AEROME_DATA_DIR || path.join(__dirname, '.aerome-data');
 try { fs.mkdirSync(AEROME_DATA_DIR, { recursive: true }); } catch (e) {}
 const COOKIE_FILE = process.env.COOKIE_FILE || path.join(AEROME_DATA_DIR, '.cookie');
 const QQ_COOKIE_FILE = process.env.QQ_COOKIE_FILE || path.join(AEROME_DATA_DIR, '.qq-cookie');
@@ -2962,6 +2962,8 @@ async function handleKugouSearch(keyword, page, limit) {
   const data = await kugouFetchJson(u);
   const items = ((data.data || {}).info || []).map(item => {
     const hash = String(item.FileHash || item.hash || '').toUpperCase();
+    const privilege = Number(item.privilege || item.Privilege || 0);
+    const payType = Number(item.pay_type || item.PayType || 0);
     return {
       id: String(item.audio_id || item.songid || hash),
       hash,
@@ -2970,6 +2972,9 @@ async function handleKugouSearch(keyword, page, limit) {
       artist: stripKugouTag(item.SingerName || item.singername).split(/、|&/)[0],
       album: stripKugouTag(item.AlbumName || item.album_name),
       duration: Number(item.Duration || item.duration || 0),
+      privilege,
+      payType,
+      payRequired: privilege !== 0 || payType === 1 || payType === 3 || payType === 7,
     };
   }).filter(it => it.hash);
   return { total: ((data.data || {}).total || items.length) | 0, items };
