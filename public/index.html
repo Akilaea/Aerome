@@ -2253,6 +2253,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
       </div>
       <div class="fx-toggle-grid">
         <div class="fx-toggle" id="t-liveBackgroundKeep" onclick="toggleFx('liveBackgroundKeep')" title="开启后后台或最小化时保持视觉渲染，不进入低占用暂停"><span>直播后台保持</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-closeToTray" onclick="toggleCloseToTray()" title="开启后点关闭按钮缩到系统托盘后台运行，关闭则直接退出"><span>关闭缩到托盘</span><span class="dot"></span></div>
       </div>
       <div class="fx-slider"><label>粒子尺寸</label><input id="fx-point" type="range" min="0.5" max="2.2" step="0.01"><output></output></div>
       <div class="fx-slider"><label>流速</label><input id="fx-speed" type="range" min="0.2" max="2.5" step="0.01"><output></output></div>
@@ -2734,6 +2735,22 @@ var VISUAL_PRESET_SCHEMA = 'skull-preset-v2';
 var PLAYBACK_QUALITY_STORE_KEY = 'aerome-playback-quality-v1';
 var UPLOAD_TIP_STORE_KEY = 'aerome-upload-tip-seen';
 var DIY_MODE_STORE_KEY = 'aerome-diy-player-mode-v1';
+var CLOSE_TO_TRAY_KEY = 'aerome-close-to-tray';
+function closeToTrayEnabled() {
+  try { return localStorage.getItem(CLOSE_TO_TRAY_KEY) !== '0'; } catch (e) { return true; }
+}
+function setCloseToTray(on) {
+  try { localStorage.setItem(CLOSE_TO_TRAY_KEY, on ? '1' : '0'); } catch (e) {}
+  var api = getDesktopWindowApi && getDesktopWindowApi();
+  if (api && typeof api.setTrayMinimizeEnabled === 'function') api.setTrayMinimizeEnabled(on);
+}
+function toggleCloseToTray() {
+  var on = !closeToTrayEnabled();
+  setCloseToTray(on);
+  var el = document.getElementById('t-closeToTray');
+  if (el) el.classList.toggle('on', on);
+  showToast(on ? '关闭窗口时将最小化到托盘' : '关闭窗口时将直接退出');
+}
 var PLAYLIST_PANEL_PIN_STORE_KEY = 'aerome-playlist-panel-pinned-v1';
 var USER_CAPSULE_AUTO_HIDE_STORE_KEY = 'aerome-user-capsule-auto-hide-v1';
 var FX_FAB_AUTO_HIDE_STORE_KEY = 'aerome-fx-fab-auto-hide-v1';
@@ -3727,6 +3744,11 @@ function installRenderPowerHooks() {
       window.desktopWindow.getState().then(updateDesktopRuntimeState).catch(function(){});
     }
   }
+  if (window.desktopWindow && typeof window.desktopWindow.setTrayMinimizeEnabled === 'function') {
+    window.desktopWindow.setTrayMinimizeEnabled(closeToTrayEnabled());
+  }
+  var __trayToggle = document.getElementById('t-closeToTray');
+  if (__trayToggle) __trayToggle.classList.toggle('on', closeToTrayEnabled());
 }
 
 // ============================================================

@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   openUpdateInstaller: (filePath) => ipcRenderer.invoke('aerome-open-update-installer', filePath),
   restartApp: () => ipcRenderer.invoke('aerome-restart-app'),
   configureGlobalHotkeys: (bindings) => ipcRenderer.invoke('aerome-hotkeys-configure-global', bindings || []),
+  setTrayMinimizeEnabled: (enabled) => ipcRenderer.invoke('aerome-set-tray-mode', !!enabled),
   exportJsonFile: (payload) => ipcRenderer.invoke('aerome-export-json-file', payload || {}),
   importJsonFile: () => ipcRenderer.invoke('aerome-import-json-file'),
   onGlobalHotkey: (callback) => {

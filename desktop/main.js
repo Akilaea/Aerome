@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, screen, session, globalShortcut, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, screen, session, globalShortcut, dialog, Tray, Menu } = require('electron');
 const net = require('net');
 const path = require('path');
 const fs = require('fs');
@@ -32,6 +32,9 @@ const MIN_WINDOWED_HEIGHT = 540;
 const APP_NAME = 'Aerome';
 const APP_USER_MODEL_ID = 'com.aerome.desktop';
 const APP_ICON_ICO = path.join(__dirname, '..', 'build', 'icon.ico');
+let trayInstance = null;
+let isQuitting = false;
+let trayMinimizeEnabled = true;
 function resolveAeromeDataDir() {
   if (process.env.AEROME_DATA_DIR) return process.env.AEROME_DATA_DIR;
   if (app.isPackaged) {
@@ -1263,6 +1266,12 @@ ipcMain.handle('desktop-window-close', (event) => {
   getSenderWindow(event)?.close();
 });
 
+ipcMain.handle('aerome-set-tray-mode', (_event, enabled) => {
+  trayMinimizeEnabled = !!enabled;
+  if (trayInstance) trayInstance.setContextMenu(buildTrayMenu());
+  return trayMinimizeEnabled;
+});
+
 ipcMain.handle('aerome-hotkeys-configure-global', (_event, bindings) => {
   return configureAeromeGlobalHotkeys(bindings);
 });
@@ -1467,6 +1476,23 @@ ipcMain.handle('aerome-wallpaper-update', async (_event, payload) => {
   }
 });
 
+function buildTrayMenu() {
+  return Menu.buildFromTemplate([
+    { label: '显示主窗口', click: () => focusMainWindow() },
+    { type: 'separator' },
+    { label: '退出 Aerome', click: () => { isQuitting = true; app.quit(); } }
+  ]);
+}
+
+function createTray() {
+  if (trayInstance) return;
+  if (!fs.existsSync(APP_ICON_ICO)) return;
+  trayInstance = new Tray(APP_ICON_ICO);
+  trayInstance.setToolTip(APP_NAME);
+  trayInstance.setContextMenu(buildTrayMenu());
+  trayInstance.on('click', () => focusMainWindow());
+}
+
 async function createWindow() {
   htmlFullscreenActive = false;
   windowFullscreenActive = false;
@@ -1549,6 +1575,12 @@ async function createWindow() {
   mainWindow.on('blur', () => sendWindowState(mainWindow));
   mainWindow.on('move', () => scheduleWindowStateSend(mainWindow));
   mainWindow.on('resize', () => scheduleWindowStateSend(mainWindow));
+  mainWindow.on('close', (event) => {
+    if (!isQuitting && trayMinimizeEnabled) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
   mainWindow.on('closed', () => {
     if (mainWindowStateTimer) {
       clearTimeout(mainWindowStateTimer);
@@ -1598,6 +1630,7 @@ if (!gotSingleInstanceLock) {
     screen.on('display-added', () => scheduleWindowStateSend(mainWindow));
     screen.on('display-removed', () => scheduleWindowStateSend(mainWindow));
     await createWindow();
+    createTray();
   });
 
   app.on('activate', () => {
@@ -1610,6 +1643,7 @@ if (!gotSingleInstanceLock) {
   });
 
   app.on('before-quit', () => {
+    isQuitting = true;
     unregisterAeromeGlobalHotkeys();
     closeOverlayWindows();
     if (localServer && localServer.close) localServer.close();

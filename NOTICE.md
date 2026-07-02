@@ -53,3 +53,5 @@ The Aerome derivative is maintained by [Akilaea](https://github.com/Akilaea). Th
 - Tightened local HTTP service to 127.0.0.1 with loopback-only CORS
 - Added Bilibili audio source integration (anonymous, no login)
 - Backward-compatible environment variable support (`AEROME_*` preferred, `MINERADIO_*` fallback)
+- Kugou music source switched to official web login mode (scan-code login at www.kugou.com, playback via wwwapi.kugou.com/play/songinfo)
+- System tray minimize: closing the main window hides it to the tray for background playback; toggleable via in-app setting
